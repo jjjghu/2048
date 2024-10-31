@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+import time
 
 # 初始化 Pygame
 pygame.init()
@@ -25,6 +26,7 @@ GRID_PADDING = 15
 GRID_TOP_MARGIN = 100
 GRID_WIDTH = (WINDOW_SIZE[0] - GRID_PADDING * (GRID_SIZE + 1)) // GRID_SIZE
 GRID_HEIGHT = (WINDOW_SIZE[1] - GRID_PADDING * (GRID_SIZE + 1) - GRID_TOP_MARGIN) // GRID_SIZE
+
 
 # 初始化遊戲網格
 grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
@@ -54,6 +56,10 @@ GAME_OVER_TEXT_COLOR = (255, 255, 255)  # 白色
 BUTTON_COLOR = (80, 80, 80)  # 深灰色
 BUTTON_TEXT_COLOR = (255, 255, 255)  # 白色
 
+NEW_TILE_ANIMATION_TIME = 0.15  # 动画持续时间（秒）
+new_tile_pos = None
+new_tile_start_time = 0
+
 # 畫記分欄
 def draw_scoreboard():
     score_text = SCORE_FONT.render(f'Score: {score}', True, SCOREBOARD_COLOR)
@@ -75,17 +81,28 @@ def draw_tile(value, row, col):
     x = GRID_PADDING + col * (GRID_WIDTH + GRID_PADDING)
     y = GRID_TOP_MARGIN + GRID_PADDING + row * (GRID_HEIGHT + GRID_PADDING)
     
-    # 使用 TILE_COLORS 字典获取颜色，如果没有定义则使用默认颜色
     tile_color = TILE_COLORS.get(value, DEFAULT_TILE_COLOR)
     
-    pygame.draw.rect(screen, tile_color, (x, y, GRID_WIDTH, GRID_HEIGHT))
+    # 计算动画缩放因子
+    scale = 1.0
+    if (row, col) == new_tile_pos:
+        elapsed_time = time.time() - new_tile_start_time
+        if elapsed_time < NEW_TILE_ANIMATION_TIME:
+            progress = elapsed_time / NEW_TILE_ANIMATION_TIME
+            scale = 1 + 0.2 * (1 - abs(2 * progress - 1))  # 0.2 是最大缩放比例
     
-    # 根据数字大小调整字体大小
+    # 应用缩放
+    scaled_width = int(GRID_WIDTH * scale)
+    scaled_height = int(GRID_HEIGHT * scale)
+    x_offset = (GRID_WIDTH - scaled_width) // 2
+    y_offset = (GRID_HEIGHT - scaled_height) // 2
+    
+    pygame.draw.rect(screen, tile_color, (x + x_offset, y + y_offset, scaled_width, scaled_height))
+    
     font_size = 55 if value < 100 else 45 if value < 1000 else 35
-    font = pygame.font.Font(None, font_size)
+    font = pygame.font.Font(None, int(font_size * scale))
     
-    # 根据背景颜色选择文字颜色
-    text_color = TEXT_COLOR if value < 8 else (249, 246, 242)  # 深色背景使用浅色文字
+    text_color = TEXT_COLOR if value < 8 else (249, 246, 242)
     
     text = font.render(str(value), True, text_color)
     text_rect = text.get_rect(center=(x + GRID_WIDTH // 2, y + GRID_HEIGHT // 2))
@@ -93,11 +110,14 @@ def draw_tile(value, row, col):
 
 # 隨機生成新方塊
 def spawn_new_tile():
+    global new_tile_pos, new_tile_start_time
     empty_tiles = [(r, c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if grid[r][c] == 0]
     if not empty_tiles:
         return
     row, col = random.choice(empty_tiles)
     grid[row][col] = random.choice([2, 4])
+    new_tile_pos = (row, col)
+    new_tile_start_time = time.time()
 
 # 移動並合併方塊
 def move_and_merge(direction):
@@ -221,10 +241,11 @@ def reset_game():
 
 # 主函数
 def main():
-    global score
+    global score, new_tile_pos, new_tile_start_time
     reset_game()
     
     game_over = False
+    clock = pygame.time.Clock()
     
     while True:
         for event in pygame.event.get():
@@ -232,14 +253,10 @@ def main():
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN and not game_over:
-                if event.key == pygame.K_UP:
-                    move_and_merge('UP')
-                elif event.key == pygame.K_DOWN:
-                    move_and_merge('DOWN')
-                elif event.key == pygame.K_LEFT:
-                    move_and_merge('LEFT')
-                elif event.key == pygame.K_RIGHT:
-                    move_and_merge('RIGHT')
+                if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]:
+                    direction = {pygame.K_UP: 'UP', pygame.K_DOWN: 'DOWN', 
+                                 pygame.K_LEFT: 'LEFT', pygame.K_RIGHT: 'RIGHT'}[event.key]
+                    move_and_merge(direction)
             elif event.type == pygame.MOUSEBUTTONDOWN and game_over:
                 mouse_pos = pygame.mouse.get_pos()
                 if restart_rect.collidepoint(mouse_pos):
@@ -264,6 +281,11 @@ def main():
             restart_rect, quit_rect = draw_game_over()
         
         pygame.display.flip()
+        clock.tick(60)  # 限制帧率为60FPS
+
+        # 重置新方块的动画状态
+        if new_tile_pos and time.time() - new_tile_start_time > NEW_TILE_ANIMATION_TIME:
+            new_tile_pos = None
 
 if __name__ == "__main__":
     main()
