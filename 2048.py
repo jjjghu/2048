@@ -32,6 +32,24 @@ grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
 # 初始化分數
 score = 0
 
+# 为每个数字定义颜色
+TILE_COLORS = {
+    2: (238, 228, 218),
+    4: (237, 224, 200),
+    8: (242, 177, 121),
+    16: (245, 149, 99),
+    32: (246, 124, 95),
+    64: (246, 94, 59),
+    128: (237, 207, 114),
+    256: (237, 204, 97),
+    512: (237, 200, 80),
+    1024: (237, 197, 63),
+    2048: (237, 194, 46),
+}
+
+# 默认颜色（用于未定义的数字）
+DEFAULT_TILE_COLOR = (205, 193, 180)
+
 # 畫記分欄
 def draw_scoreboard():
     score_text = SCORE_FONT.render(f'Score: {score}', True, SCOREBOARD_COLOR)
@@ -52,9 +70,20 @@ def draw_tile(value, row, col):
         return
     x = GRID_PADDING + col * (GRID_WIDTH + GRID_PADDING)
     y = GRID_TOP_MARGIN + GRID_PADDING + row * (GRID_HEIGHT + GRID_PADDING)
-    tile_color = SPECIAL_TILE_COLOR if value == 2 else TILE_COLOR
+    
+    # 使用 TILE_COLORS 字典获取颜色，如果没有定义则使用默认颜色
+    tile_color = TILE_COLORS.get(value, DEFAULT_TILE_COLOR)
+    
     pygame.draw.rect(screen, tile_color, (x, y, GRID_WIDTH, GRID_HEIGHT))
-    text = FONT.render(str(value), True, TEXT_COLOR)
+    
+    # 根据数字大小调整字体大小
+    font_size = 55 if value < 100 else 45 if value < 1000 else 35
+    font = pygame.font.Font(None, font_size)
+    
+    # 根据背景颜色选择文字颜色
+    text_color = TEXT_COLOR if value < 8 else (249, 246, 242)  # 深色背景使用浅色文字
+    
+    text = font.render(str(value), True, text_color)
     text_rect = text.get_rect(center=(x + GRID_WIDTH // 2, y + GRID_HEIGHT // 2))
     screen.blit(text, text_rect)
 
@@ -72,6 +101,7 @@ def move_and_merge(direction):
     moved = False
     
     def slide_row_left(row):
+        global score
         nonlocal moved
         new_row = [v for v in row if v != 0]
         for i in range(len(new_row) - 1):
@@ -81,7 +111,10 @@ def move_and_merge(direction):
                 new_row[i + 1] = 0
                 moved = True
         new_row = [v for v in new_row if v != 0]
-        return new_row + [0] * (GRID_SIZE - len(new_row))
+        padded_row = new_row + [0] * (GRID_SIZE - len(new_row))
+        if padded_row != row:  # 检查是否发生了移动
+            moved = True
+        return padded_row
 
     for i in range(GRID_SIZE):
         if direction == 'LEFT':
@@ -92,15 +125,20 @@ def move_and_merge(direction):
             col = [grid[r][i] for r in range(GRID_SIZE)]
             new_col = slide_row_left(col)
             for r in range(GRID_SIZE):
+                if grid[r][i] != new_col[r]:  # 检查列是否发生了变化
+                    moved = True
                 grid[r][i] = new_col[r]
         elif direction == 'DOWN':
             col = [grid[r][i] for r in range(GRID_SIZE)]
             new_col = list(reversed(slide_row_left(list(reversed(col)))))
             for r in range(GRID_SIZE):
+                if grid[r][i] != new_col[r]:  # 检查列是否发生了变化
+                    moved = True
                 grid[r][i] = new_col[r]
-
+    
     if moved:
-        spawn_new_tile()  # 生成新的隨機方塊
+        spawn_new_tile()  # 生成新的随机方块
+  # 生成新的隨機方塊
 
 # 主函數
 def main():
