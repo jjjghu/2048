@@ -23,7 +23,7 @@ SCORE_FONT = pygame.font.Font(None, 40)
 # 網格大小與間距
 GRID_SIZE = 4
 GRID_PADDING = 15
-GRID_TOP_MARGIN = 100
+GRID_TOP_MARGIN = 120
 GRID_WIDTH = (WINDOW_SIZE[0] - GRID_PADDING * (GRID_SIZE + 1)) // GRID_SIZE
 GRID_HEIGHT = (WINDOW_SIZE[1] - GRID_PADDING * (GRID_SIZE + 1) - GRID_TOP_MARGIN) // GRID_SIZE
 
@@ -59,6 +59,7 @@ BUTTON_TEXT_COLOR = (255, 255, 255)  # 白色
 NEW_TILE_ANIMATION_TIME = 0.15  # 动画持续时间（秒）
 new_tile_pos = None
 new_tile_start_time = 0
+animation_enabled = True  # 新增：控制动画开关的变量
 
 # 畫記分欄
 def draw_scoreboard():
@@ -85,7 +86,7 @@ def draw_tile(value, row, col):
     
     # 计算动画缩放因子
     scale = 1.0
-    if (row, col) == new_tile_pos:
+    if animation_enabled and (row, col) == new_tile_pos:  # 修改：只在动画开启时应用缩放
         elapsed_time = time.time() - new_tile_start_time
         if elapsed_time < NEW_TILE_ANIMATION_TIME:
             progress = elapsed_time / NEW_TILE_ANIMATION_TIME
@@ -233,15 +234,26 @@ def draw_game_over():
 
 # 重置游戏
 def reset_game():
-    global grid, score
+    global grid, score, new_tile_pos, new_tile_start_time
     grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
     score = 0
+    new_tile_pos = None
+    new_tile_start_time = 0
     spawn_new_tile()
     spawn_new_tile()
 
 # 主函数
+# 新增：绘制动画状态的函数
+def draw_animation_status():
+    status_text = "Animation: ON" if animation_enabled else "Animation: OFF"
+    font = pygame.font.Font(None, 30)
+    text = font.render(status_text, True, SCOREBOARD_COLOR)
+    text_rect = text.get_rect(midtop=(WINDOW_SIZE[0] // 2, 10))  # 将文本放在顶部中央
+    screen.blit(text, text_rect)
+
+# 修改 main 函数
 def main():
-    global score, new_tile_pos, new_tile_start_time
+    global score, new_tile_pos, new_tile_start_time, animation_enabled
     reset_game()
     
     game_over = False
@@ -252,11 +264,17 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.KEYDOWN and not game_over:
-                if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]:
-                    direction = {pygame.K_UP: 'UP', pygame.K_DOWN: 'DOWN', 
-                                 pygame.K_LEFT: 'LEFT', pygame.K_RIGHT: 'RIGHT'}[event.key]
-                    move_and_merge(direction)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_a:
+                    animation_enabled = not animation_enabled
+                elif event.key == pygame.K_r:
+                    reset_game()
+                    game_over = False
+                elif not game_over:
+                    if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]:
+                        direction = {pygame.K_UP: 'UP', pygame.K_DOWN: 'DOWN', 
+                                     pygame.K_LEFT: 'LEFT', pygame.K_RIGHT: 'RIGHT'}[event.key]
+                        move_and_merge(direction)
             elif event.type == pygame.MOUSEBUTTONDOWN and game_over:
                 mouse_pos = pygame.mouse.get_pos()
                 if restart_rect.collidepoint(mouse_pos):
@@ -267,23 +285,28 @@ def main():
                     sys.exit()
         
         screen.fill(BACKGROUND_COLOR)
+        # 先绘制动画状态和分数
+        draw_animation_status()
         draw_scoreboard()
+
+        # 然后绘制网格和方块
         draw_grid()
         
         for i in range(GRID_SIZE):
             for j in range(GRID_SIZE):
                 draw_tile(grid[i][j], i, j)
         
-        if not game_over and is_game_over():
-            game_over = True
+        draw_animation_status()
+        
+        if not game_over:
+            game_over = is_game_over()
         
         if game_over:
             restart_rect, quit_rect = draw_game_over()
         
         pygame.display.flip()
-        clock.tick(60)  # 限制帧率为60FPS
+        clock.tick(60)
 
-        # 重置新方块的动画状态
         if new_tile_pos and time.time() - new_tile_start_time > NEW_TILE_ANIMATION_TIME:
             new_tile_pos = None
 
