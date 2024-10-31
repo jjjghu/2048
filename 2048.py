@@ -49,6 +49,10 @@ TILE_COLORS = {
 
 # 默认颜色（用于未定义的数字）
 DEFAULT_TILE_COLOR = (205, 193, 180)
+GAME_OVER_BACKGROUND = (0, 0, 0, 150)  # 半透明黑色
+GAME_OVER_TEXT_COLOR = (255, 255, 255)  # 白色
+BUTTON_COLOR = (80, 80, 80)  # 深灰色
+BUTTON_TEXT_COLOR = (255, 255, 255)  # 白色
 
 # 畫記分欄
 def draw_scoreboard():
@@ -139,19 +143,95 @@ def move_and_merge(direction):
     if moved:
         spawn_new_tile()  # 生成新的随机方块
   # 生成新的隨機方塊
+def draw_game_over():
+    overlay = pygame.Surface((WINDOW_SIZE[0], WINDOW_SIZE[1]), pygame.SRCALPHA)
+    overlay.fill(GAME_OVER_BACKGROUND)
+    screen.blit(overlay, (0, 0))
+
+    font = pygame.font.Font(None, 70)
+    text = font.render("Game Over", True, GAME_OVER_TEXT_COLOR)
+    text_rect = text.get_rect(center=(WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2 - 50))
+    screen.blit(text, text_rect)
+
+    button_font = pygame.font.Font(None, 40)
+    restart_text = button_font.render("Restart", True, BUTTON_TEXT_COLOR)
+    restart_rect = pygame.Rect(WINDOW_SIZE[0] // 4 - 60, WINDOW_SIZE[1] // 2 + 50, 120, 50)
+    pygame.draw.rect(screen, BUTTON_COLOR, restart_rect)
+    screen.blit(restart_text, restart_text.get_rect(center=restart_rect.center))
+
+    quit_text = button_font.render("Quit", True, BUTTON_TEXT_COLOR)
+    quit_rect = pygame.Rect(WINDOW_SIZE[0] * 3 // 4 - 60, WINDOW_SIZE[1] // 2 + 50, 120, 50)
+    pygame.draw.rect(screen, BUTTON_COLOR, quit_rect)
+    screen.blit(quit_text, quit_text.get_rect(center=quit_rect.center))
+
+    return restart_rect, quit_rect
+
+# 重置游戏
+def reset_game():
+    global grid, score
+    grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+    score = 0
+    spawn_new_tile()
+    spawn_new_tile()
 
 # 主函數
+# 检查游戏是否结束
+def is_game_over():
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
+            if grid[i][j] == 0:
+                return False
+            if i < GRID_SIZE - 1 and grid[i][j] == grid[i+1][j]:
+                return False
+            if j < GRID_SIZE - 1 and grid[i][j] == grid[i][j+1]:
+                return False
+    return True
+
+# 绘制游戏结束界面
+def draw_game_over():
+    overlay = pygame.Surface((WINDOW_SIZE[0], WINDOW_SIZE[1]), pygame.SRCALPHA)
+    overlay.fill(GAME_OVER_BACKGROUND)
+    screen.blit(overlay, (0, 0))
+
+    font = pygame.font.Font(None, 70)
+    text = font.render("Game Over", True, GAME_OVER_TEXT_COLOR)
+    text_rect = text.get_rect(center=(WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2 - 50))
+    screen.blit(text, text_rect)
+
+    button_font = pygame.font.Font(None, 40)
+    restart_text = button_font.render("Restart", True, BUTTON_TEXT_COLOR)
+    restart_rect = pygame.Rect(WINDOW_SIZE[0] // 4 - 60, WINDOW_SIZE[1] // 2 + 50, 120, 50)
+    pygame.draw.rect(screen, BUTTON_COLOR, restart_rect)
+    screen.blit(restart_text, restart_text.get_rect(center=restart_rect.center))
+
+    quit_text = button_font.render("Quit", True, BUTTON_TEXT_COLOR)
+    quit_rect = pygame.Rect(WINDOW_SIZE[0] * 3 // 4 - 60, WINDOW_SIZE[1] // 2 + 50, 120, 50)
+    pygame.draw.rect(screen, BUTTON_COLOR, quit_rect)
+    screen.blit(quit_text, quit_text.get_rect(center=quit_rect.center))
+
+    return restart_rect, quit_rect
+
+# 重置游戏
+def reset_game():
+    global grid, score
+    grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+    score = 0
+    spawn_new_tile()
+    spawn_new_tile()
+
+# 主函数
 def main():
     global score
-    spawn_new_tile()
-    spawn_new_tile()
+    reset_game()
+    
+    game_over = False
     
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN and not game_over:
                 if event.key == pygame.K_UP:
                     move_and_merge('UP')
                 elif event.key == pygame.K_DOWN:
@@ -160,16 +240,28 @@ def main():
                     move_and_merge('LEFT')
                 elif event.key == pygame.K_RIGHT:
                     move_and_merge('RIGHT')
+            elif event.type == pygame.MOUSEBUTTONDOWN and game_over:
+                mouse_pos = pygame.mouse.get_pos()
+                if restart_rect.collidepoint(mouse_pos):
+                    reset_game()
+                    game_over = False
+                elif quit_rect.collidepoint(mouse_pos):
+                    pygame.quit()
+                    sys.exit()
         
-        # 畫圖
         screen.fill(BACKGROUND_COLOR)
         draw_scoreboard()
         draw_grid()
         
-        # 畫數字方塊
         for i in range(GRID_SIZE):
             for j in range(GRID_SIZE):
                 draw_tile(grid[i][j], i, j)
+        
+        if not game_over and is_game_over():
+            game_over = True
+        
+        if game_over:
+            restart_rect, quit_rect = draw_game_over()
         
         pygame.display.flip()
 
