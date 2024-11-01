@@ -2,6 +2,8 @@ import pygame
 import sys
 import random
 import time
+import os
+from datetime import datetime
 
 # 初始化 Pygame
 pygame.init()
@@ -61,11 +63,35 @@ new_tile_pos = None
 new_tile_start_time = 0
 animation_enabled = True  # 新增：控制动画开关的变量
 
+def capture_screenshot():
+    # 創建 screenshots 文件夾(如果不存在)
+    if not os.path.exists("screenshots"):
+        os.makedirs("screenshots")
+    
+    # 生成唯一的文件名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"screenshots/2048_screenshot_{timestamp}.png"
+    
+    # 保存當前屏幕為圖像文件
+    pygame.image.save(screen, filename)
+    print(f"Screenshot saved as {filename}")
+    
 # 畫記分欄
+# 修改 draw_scoreboard 函數
 def draw_scoreboard():
-    score_text = SCORE_FONT.render(f'Score: {score}', True, SCOREBOARD_COLOR)
-    score_rect = score_text.get_rect(center=(WINDOW_SIZE[0] // 2, GRID_TOP_MARGIN // 2))
-    screen.blit(score_text, score_rect)
+    score_label = SCORE_FONT.render('Score:', True, SCOREBOARD_COLOR)
+    score_value = SCORE_FONT.render(str(score), True, SCOREBOARD_COLOR)
+    
+    # 設置 "Score:" 標籤的位置 (靠左)
+    label_x = GRID_PADDING
+    label_y = GRID_TOP_MARGIN // 2 - score_label.get_height() // 2
+    screen.blit(score_label, (label_x, label_y))
+    
+    # 設置分數值的位置 (在標籤右側)
+    value_x = label_x + score_label.get_width() + 10  # 10是標籤和分數之間的間距
+    value_y = label_y
+    screen.blit(score_value, (value_x, value_y))
+
 
 # 畫網格
 def draw_grid():
@@ -248,7 +274,11 @@ def draw_animation_status():
     status_text = "Animation: ON" if animation_enabled else "Animation: OFF"
     font = pygame.font.Font(None, 30)
     text = font.render(status_text, True, SCOREBOARD_COLOR)
-    text_rect = text.get_rect(midtop=(WINDOW_SIZE[0] // 2, 10))  # 将文本放在顶部中央
+    
+    # 計算文本位置，使其靠右顯示
+    padding = 10  # 右邊距
+    text_rect = text.get_rect(topright=(WINDOW_SIZE[0] - padding, 10))  # 10是上邊距
+    
     screen.blit(text, text_rect)
 
 # 修改 main 函数
@@ -270,6 +300,8 @@ def main():
                 elif event.key == pygame.K_r:
                     reset_game()
                     game_over = False
+                elif event.key == pygame.K_s: 
+                    capture_screenshot()
                 elif not game_over:
                     if event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]:
                         direction = {pygame.K_UP: 'UP', pygame.K_DOWN: 'DOWN', 
